@@ -1,0 +1,88 @@
+#1 general
+units		metal
+dimension	3
+atom_style      atomic
+neighbor        0.3 bin
+ 
+#2 structure
+boundary	p p p
+    
+atom_style    atomic
+atom_modify   map array sort 0 0.0
+read_data     gaussian.dat
+
+group 		Au type 1
+group 		Pd type 2
+
+
+#3 force fields
+pair_style    eam/fs 
+pair_coeff    * * "C:\Users\sergi\Documents\Materials Studio Projects\VERANO2022_Files\Provericyt_Verano_2022\Datos_Cluster_Au\Modificados\lammps\potencial\AuPd.fs" Au Pd #CHECAR
+
+compute       arrs all pe/atom
+
+neighbor      0.3 bin
+neigh_modify  delay 10
+
+
+
+minimize      1.0e-9 1.0e-9  10000 100000
+
+velocity        all create 300.0 682000 rot yes mom yes dist gaussian 
+
+
+thermo        1000
+timestep      0.001
+
+#4 optimize at 0 K
+dump           1 all custom 1 dump.optimization id type x y z
+fix		1 all box/relax x 0.0 y 0.0
+min_style	cg
+minimize	0.0 1.0e-8 1000000 1000000
+undump		1
+unfix		1
+ 
+
+fix 		 2 all nvt temp 300.0 300.0 0.1  
+variable        tmp equal bound(all,zmax)-bound(all,zmin)
+variable        maxz equal bound(all,zmax)
+variable        minz equal bound(all,zmin)
+thermo        1000
+timestep      0.001
+thermo_style  custom step temp pe ke press v_tmp v_maxz v_minz
+
+run             15000
+
+#################################
+
+# Condiciones inciales #
+
+variable	lenzi equal ${tmp}                   # longitud antes de la compresion
+variable	indentup equal 33.0      # posicion inicial del identador de arriba
+variable	indentdown equal -33.0   # posicion inicial del identador de abajo
+
+# Variables dinámicas (instantaneas) #
+
+variable    lenz equal bound(all,zmax)-bound(all,zmin)      # longitud en cada paso
+variable 	xeta equal "(v_indentup - dt*0.01*elaplong)"    # posicion del identador en casa paso
+ 
+fix	3 all indent 10 plane z v_xeta hi units box
+fix 	4 all indent 10 plane z v_indentdown lo units box
+
+variable	 strain equal "(v_lenzi - v_lenz)/v_lenz"
+variable	 force equal "(f_3[3])"
+#variable	 stress equal "(f_3[2])/((v_lenz* (10^-10))^2)*(1/6.242e18)*(1/1e-10)*(1e-6)"
+dump            3 all custom 10000 dump.indent id element x y z
+dump_modify 3 element Au Pd
+fix 	def4 all print 100 "${strain}       ${force}" file strain_force.dat screen no
+
+
+thermo        1000
+timestep      0.001
+thermo_style  custom step temp pe ke  v_xeta v_lenzi v_lenz f_3[3]  f_4[3] v_strain v_force press 
+
+
+run 	2000000
+
+
+

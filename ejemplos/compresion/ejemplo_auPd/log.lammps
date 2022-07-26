@@ -1,0 +1,340 @@
+LAMMPS (29 Sep 2021 - Update 1)
+package gpu 0
+package gpu 1
+# deform by tension
+#1 general
+units		metal
+dimension	3
+atom_style      atomic
+neighbor        0.3 bin
+
+#2 structure
+boundary	p p p
+# PONER PATH COMPLETO DEL ARCHIVO
+read_data	nw2.lammps
+Reading data file ...
+  orthogonal box = (-212.07100 -212.07100 0.0000000) to (212.07100 212.07100 183.52300)
+  1 by 2 by 1 MPI processor grid
+  reading atoms ...
+  30285 atoms
+  read_data CPU = 0.027 seconds
+mass        1 196.967
+mass		2 106.42
+
+#3 variables
+variable	temperature equal 300.0
+variable	pressure equal 0.0
+variable        tstep equal 0.001
+variable        tmp equal bound(all,zmax)-bound(all,zmin)
+variable        lenz equal ${tmp}
+variable        lenz equal 181.483994
+#diam= Diametro del nanowire
+#variable	diam equal 24.468
+variable	diam equal bound(all,xmax)-bound(all,xmin)
+print           ${diam}
+print           57.0960006
+57.0960006
+
+#4 potentials
+# PONER EL PATH COMPLETO DEL ARCHIVO
+pair_style    eam/fs
+pair_coeff    * * AuPd.fs Au Pd
+
+#5 optimize at 0 K
+#dump           1 all custom 1 dump.minimization id type x y z
+#fix		1 all box/relax x 0.0 y 0.0
+#min_style	cg
+#minimize	0.0 1.0e-8 1000000 1000000
+#undump		1
+#unfix		1
+
+#6 optimize at T
+compute		peratom all pe/atom
+reset_timestep	0
+timestep	${tstep}
+timestep	0.001
+#Se generan velocidades aleatorias
+velocity	all create ${temperature} 64157 mom yes rot yes
+velocity	all create 300 64157 mom yes rot yes
+#Se realiza NPT
+fix             1 all npt temp ${temperature} ${temperature} 0.1 z ${pressure} ${pressure} 1
+fix             1 all npt temp 300 ${temperature} 0.1 z ${pressure} ${pressure} 1
+fix             1 all npt temp 300 300 0.1 z ${pressure} ${pressure} 1
+fix             1 all npt temp 300 300 0.1 z 0 ${pressure} 1
+fix             1 all npt temp 300 300 0.1 z 0 0 1
+#dump            1 all custom 1000 dump.optimize id type x y z c_peratom fx fy fz
+thermo		10000
+thermo_style	custom step lx ly lz press pxx pyy pzz pe temp
+neigh_modify    once yes
+run		100000
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Your simulation uses code contributions which should be cited:
+
+- GPU package (short-range, long-range and three-body potentials):
+
+@Article{Brown11,
+ author = {W. M. Brown, P. Wang, S. J. Plimpton, A. N. Tharrington},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers - Short Range Forces},
+ journal = {Comp.~Phys.~Comm.},
+ year =    2011,
+ volume =  182,
+ pages =   {898--911}
+}
+
+@Article{Brown12,
+ author = {W. M. Brown, A. Kohlmeyer, S. J. Plimpton, A. N. Tharrington},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers - Particle-Particle Particle-Mesh},
+ journal = {Comp.~Phys.~Comm.},
+ year =    2012,
+ volume =  183,
+ pages =   {449--459}
+}
+
+@Article{Brown13,
+ author = {W. M. Brown, Y. Masako},
+ title = {Implementing Molecular Dynamics on Hybrid High Performance Computers – Three-Body Potentials},
+ journal = {Comp.~Phys.~Comm.},
+ year =    2013,
+ volume =  184,
+ pages =   {2785--2793}
+}
+
+@Article{Trung15,
+ author = {T. D. Nguyen, S. J. Plimpton},
+ title = {Accelerating dissipative particle dynamics simulations for soft matter systems},
+ journal = {Comput.~Mater.~Sci.},
+ year =    2015,
+ volume =  100,
+ pages =   {173--180}
+}
+
+@Article{Trung17,
+ author = {T. D. Nguyen},
+ title = {GPU-accelerated Tersoff potentials for massively parallel Molecular Dynamics simulations},
+ journal = {Comp.~Phys.~Comm.},
+ year =    2017,
+ volume =  212,
+ pages =   {113--122}
+}
+
+@Article{Nikolskiy19,
+ author = {V. Nikolskiy, V. Stegailov},
+ title = {GPU acceleration of four-site water models in LAMMPS},
+ journal = {Proceeding of the International Conference on Parallel Computing (ParCo 2019), Prague, Czech Republic},
+ year =    2019
+}
+
+CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE-CITE
+
+Per MPI rank memory allocation (min/avg/max) = 6.450 | 6.472 | 6.495 Mbytes
+Step Lx Ly Lz Press Pxx Pyy Pzz PotEng Temp 
+       0      424.142      424.142      183.523   -723.73568    -711.7243   -711.86365   -747.61909   -117750.92          300 
+   10000      424.142      424.142    182.93636    18.528238    30.337807    29.501604   -4.2546977   -117105.85     300.0917 
+   20000      424.142      424.142    181.48777   -18.543788   -25.212099   -30.978631   0.55936527   -117089.75    301.49032 
+   30000      424.142      424.142    182.58862     11.11412    17.874226    18.765605   -3.2974691   -117115.17    298.15807 
+   40000      424.142      424.142    181.90501   -3.0462914   -4.1725105   -7.3794801    2.4131165   -117095.66    300.49814 
+   50000      424.142      424.142    182.29916   -9.9936975   -10.991667   -4.8977239   -14.091701   -117102.14    299.85288 
+   60000      424.142      424.142    182.14825    3.4871311    4.6062323   0.93790911     4.917252    -117102.5    299.17418 
+   70000      424.142      424.142    182.07354  -0.91764091   -1.5750828   -1.5700883   0.39224837   -117107.17    301.76925 
+   80000      424.142      424.142    182.23586    6.6622723    7.6671067    8.6559063    3.6638041   -117097.52    302.45051 
+   90000      424.142      424.142    182.01408   -5.8632833   -6.4998363   -9.5611259   -1.5288875   -117090.36    299.51947 
+  100000      424.142      424.142    182.33286   -1.8373643   0.57766634 -0.071750918   -6.0180084   -117094.89    299.65884 
+Loop time of 155.146 on 2 procs for 100000 steps with 30285 atoms
+
+Performance: 55.690 ns/day, 0.431 hours/ns, 644.555 timesteps/s
+98.8% CPU use with 2 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 92.827     | 102.28     | 111.74     |  93.5 | 65.93
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 6.9482     | 7.0509     | 7.1537     |   3.9 |  4.54
+Output  | 0.0012576  | 0.0013236  | 0.0013897  |   0.2 |  0.00
+Modify  | 35.107     | 44.684     | 54.26      | 143.3 | 28.80
+Other   |            | 1.128      |            |       |  0.73
+
+Nlocal:        15142.5 ave       15795 max       14490 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        6098.50 ave        6751 max        5446 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:         0.00000 ave           0 max           0 min
+Histogram: 2 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0.0000000
+Neighbor list builds = 0
+Dangerous builds = 0
+
+
+variable        tmp equal lz
+variable        lz0 equal ${tmp}
+variable        lz0 equal 182.332856508856
+#fix		def1 all print 10000 "${lz0}" file lz0.dat screen no
+
+#7 tension by deform
+reset_timestep	0
+unfix		1
+
+#strainrate1= la conversion de las unidades del strainrate
+variable 	strainrate equal 1.0e9
+variable 	strainrate1 equal "v_strainrate/1.0e12"
+#Se realiza NPT
+fix		1 all nvt temp ${temperature} ${temperature} 0.1
+fix		1 all nvt temp 300 ${temperature} 0.1
+fix		1 all nvt temp 300 300 0.1
+#Se relaja la caja
+fix		2 all deform 1 z erate ${strainrate1} units box remap x
+fix		2 all deform 1 z erate 0.001 units box remap x
+
+variable	strain equal "(lz-v_lz0)/v_lz0"
+# pressure unit, 1bar=10^5Pa=10^{-4}GPa
+# for 2D materials, 1GPa=h*0.1N/m, with thickness h in the unit of angstrom
+variable	stress equal "-(0.0001*pzz)*(lx*ly)/(3.14159*((v_diam/2)^2-(0)^2))"
+
+
+variable	vol equal "(lz)*(3.14159*((v_diam/2)^2-(0)^2))"
+variable	vol0 equal "(v_lz0)*(3.14159*((v_diam/2)^2-(0)^2))"
+variable	energy equal "(1/2)*(v_vol)*(v_strain)*(v_stress)"
+#fix		def2 all print 1 "${tmp}" file lz.dat screen no
+#fix		def3 all print 1 "${vol}" file vol.dat screen no
+fix		def4 all print 100 "${strain}   ${energy}" file SEvsS.dat screen no
+#fix		def5 all print 10000 "${vol0}" file vol0.dat screen no
+
+
+fix		def6 all print 100 "${strain}   ${stress}" file strain.dat screen no
+#undump		1
+compute         toss all stress/atom NULL
+# Calcula stress de von Mises
+variable        VM atom "((0.0001)/(0.707106781))*((c_toss[1]-c_toss[2])^2+(c_toss[2]-c_toss[3])^2+(c_toss[3]-c_toss[1])^2+6*((c_toss[4])^2+(c_toss[5])^2+(c_toss[6])^2))^(1/2)"
+dump		1 all custom 2000 dump.compression id type x y z vx vy vz fx fy fz v_VM
+
+
+#8 run molecular dynamics
+thermo		10000
+thermo_style	custom step temp v_strain v_stress ke pe press
+run		800000
+Per MPI rank memory allocation (min/avg/max) = 13.61 | 13.61 | 13.62 Mbytes
+Step Temp v_strain v_stress KinEng PotEng Press 
+       0    299.65884 -1.2470252e-15  0.041528269    1173.0188   -117094.89   -1.8374354 
+   10000    300.27174         0.01   0.54882419     1175.418   -117076.87   -22.744309 
+   20000    298.39575         0.02    1.1041902    1168.0744   -117040.45   -50.595564 
+   30000    300.60073         0.03    1.7315356    1176.7058   -116984.06   -79.975116 
+   40000    299.04126         0.04    2.3225188    1170.6013   -116901.92   -104.97904 
+   50000    298.25659         0.05    2.9660712    1167.5296   -116797.89     -135.809 
+   60000     298.7444         0.06    3.5914223    1169.4392   -116679.28   -163.18564 
+   70000    299.53878         0.07    4.2180845    1172.5488   -116534.04   -202.05634 
+   80000    299.66968         0.08    4.7001377    1173.0612   -116364.97   -209.18051 
+   90000    302.01847         0.09    2.9774799    1182.2556   -116568.64   -147.03676 
+  100000    300.16057          0.1    2.0340259    1174.9828   -116742.14   -106.66415 
+  110000    300.24611         0.11    1.4171884    1175.3177   -116784.02   -71.855701 
+  120000    302.32759         0.12    1.4188135    1183.4657   -116763.73   -63.582066 
+  130000    299.60263         0.13    1.8761396    1172.7987   -116721.99   -95.430434 
+  140000    300.97114         0.14    1.4925079    1178.1558   -116756.21   -71.536028 
+  150000    298.40681         0.15    1.7538398    1168.1177   -116713.79   -92.647085 
+  160000    299.45835         0.16    1.6427158     1172.234   -116715.92   -84.493411 
+  170000    299.95455         0.17     2.076949    1174.1763   -116668.13   -102.63264 
+  180000    299.72466         0.18    1.9518462    1173.2765   -116638.29   -87.081928 
+  190000     302.5212         0.19    2.3238221    1184.2236   -116568.64   -119.81097 
+  200000    301.62648          0.2     2.168581    1180.7212    -116600.2   -110.43291 
+  210000     301.3424         0.21    2.0855652    1179.6091   -116613.34   -98.238395 
+  220000    298.98646         0.22    2.5941932    1170.3867   -116525.96   -120.73491 
+  230000    299.91304         0.23    2.9899017    1174.0139   -116445.37   -142.26002 
+  240000    299.37744         0.24    2.2790132    1171.9172   -116477.02   -110.23411 
+  250000    300.49331         0.25    2.3314257    1176.2853   -116446.72     -110.264 
+  260000    298.29871         0.26    2.0601324    1167.6945    -116466.8    -102.7709 
+  270000    298.10112         0.27    1.9098188    1166.9211    -116488.7   -89.225272 
+  280000    300.84368         0.28     2.081647    1177.6569   -116457.92   -96.926992 
+  290000    299.88416         0.29    1.6140813    1173.9008   -116494.75   -79.256097 
+  300000    298.27698          0.3    1.5374744    1167.6095   -116482.03   -75.427094 
+  310000    299.80538         0.31     1.966259    1173.5924   -116428.59   -91.368346 
+  320000    297.17757         0.32      2.03713    1163.3058   -116388.27   -93.793469 
+  330000    301.25604         0.33    1.8795867     1179.271    -116407.1   -89.760086 
+  340000    298.56703         0.34    2.0753557    1168.7449   -116347.12   -95.251394 
+  350000    300.57686         0.35     1.996284    1176.6124   -116302.23   -103.12641 
+  360000    302.06891         0.36     1.485941    1182.4531   -116330.49   -73.936395 
+  370000    298.11376         0.37    1.4465672    1166.9706   -116334.45   -73.938361 
+  380000    300.82206         0.38    1.2045768    1177.5722   -116316.32   -59.424421 
+  390000       300.29         0.39   0.85064154    1175.4895   -116331.24   -38.193193 
+  400000    298.59649          0.4   0.66473553    1168.8602   -116335.39   -33.743548 
+  410000    299.07933         0.41   0.41433019    1170.7503   -116358.69   -23.553034 
+  420000    301.84168         0.42   0.21151582    1181.5635   -116401.35   -12.041491 
+  430000    298.82536         0.43  -0.11192518    1169.7561      -116428    11.409866 
+  440000    299.70011         0.44  0.081016747    1173.1804    -116439.1   -1.7700371 
+  450000    300.11169         0.45  0.021454948    1174.7915   -116450.25   -5.2175421 
+  460000    299.74077         0.46   0.03013061    1173.3395   -116456.13   -8.0317962 
+  470000    300.65372         0.47  0.017381407    1176.9133   -116470.19    4.7593489 
+  480000    302.10847         0.48  -0.11103986    1182.6079   -116462.67    7.4305051 
+  490000     300.2755         0.49   0.14261308    1175.4327    -116463.5   -10.953309 
+  500000    300.15758          0.5    -0.146812    1174.9711   -116471.61    12.176236 
+  510000    301.56507         0.51  0.049896993    1180.4807    -116462.6   -1.0813039 
+  520000    300.25056         0.52  0.035705765    1175.3351   -116462.64   -2.8896546 
+  530000    299.58608         0.53 -0.072515526     1172.734   -116471.58    5.8336096 
+  540000    298.46714         0.54  0.077822136    1168.3538   -116474.17   -4.9521238 
+  550000    297.79942         0.55  -0.09299228      1165.74   -116486.26    2.9560122 
+  560000    297.93677         0.56  0.090870085    1166.2777   -116469.75    -6.723368 
+  570000    300.37867         0.57 -0.036108376    1175.8366   -116480.94    2.4973462 
+  580000    299.45112         0.58 -0.026813714    1172.2057   -116473.51    6.0911755 
+  590000    299.73278         0.59   0.06754408    1173.3082   -116474.39   -7.3442734 
+  600000    301.62715          0.6  -0.05801234    1180.7238   -116466.46    3.6792881 
+  610000    301.48295         0.61  0.064996023    1180.1593   -116475.45   -1.7102562 
+  620000     300.3966         0.62 -0.093307231    1175.9067   -116478.45    9.2014689 
+  630000    300.15493         0.63  0.067134121    1174.9608   -116477.17   -7.6420932 
+  640000    297.85196         0.64  -0.03021694    1165.9457   -116482.14      4.94472 
+  650000    299.88939         0.65 -0.021789487    1173.9213   -116470.36    2.5260207 
+  660000    299.73957         0.66  0.029953399    1173.3348   -116467.58   -1.7686486 
+  670000    298.69839         0.67 -0.020625233    1169.2591   -116476.51   -2.6172842 
+  680000    300.36094         0.68  0.069184586    1175.7672   -116473.84   -8.0850992 
+  690000    299.90417         0.69 -0.056523913    1173.9791   -116483.79    6.7756382 
+  700000    300.24072          0.7  0.030282862    1175.2966   -116480.62   -2.2983399 
+  710000    300.45611         0.71  0.018313795    1176.1397   -116489.63   -6.3868737 
+  720000    298.65359         0.72 -0.024558247    1169.0837   -116484.99    1.7003576 
+  730000    299.10578         0.73  0.044766837    1170.8538   -116479.01   -4.8996396 
+  740000    302.60928         0.74 -0.029607741    1184.5684   -116481.33    1.9375766 
+  750000    299.39057         0.75  0.041417288    1171.9686   -116466.42   -5.3964659 
+  760000    301.85399         0.76 -0.019522153    1181.6117   -116486.83    2.6577125 
+  770000    299.57137         0.77 0.00055595161    1172.6764   -116478.45   0.81487396 
+  780000    300.80161         0.78  0.019192293    1177.4922   -116476.59   -1.2264069 
+  790000    299.47863         0.79 -0.023700006    1172.3134   -116487.51    1.9265422 
+  800000    300.37777          0.8  0.032928167    1175.8331   -116487.75   -2.2105026 
+Loop time of 879.49 on 2 procs for 800000 steps with 30285 atoms
+
+Performance: 78.591 ns/day, 0.305 hours/ns, 909.618 timesteps/s
+98.2% CPU use with 2 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 554.9      | 557.54     | 560.19     |  11.2 | 63.39
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 48.416     | 51.886     | 55.356     |  48.2 |  5.90
+Output  | 18.537     | 18.613     | 18.689     |   1.8 |  2.12
+Modify  | 236.33     | 242.39     | 248.46     |  38.9 | 27.56
+Other   |            | 9.055      |            |       |  1.03
+
+Nlocal:        15142.5 ave       15187 max       15098 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Nghost:        6098.50 ave        6143 max        6054 min
+Histogram: 1 0 0 0 0 0 0 0 0 1
+Neighs:         0.00000 ave           0 max           0 min
+Histogram: 2 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0.0000000
+Neighbor list builds = 0
+Dangerous builds = 0
+
+
+#9 run md2
+
+#variable        VM atom "((0.0001)/(0.707106781))*((c_toss[1]-c_toss[2])^2+(c_toss[2]-#c_toss[3])^2+(c_toss[3]-c_toss[1])^2+6*((c_toss[4])^2+(c_toss[5])^2+(c_toss[6])^2))^(1/2)"
+#dump		2 all custom 1 dump2.compression id type x y z vx vy vz fx fy fz v_VM
+#thermo		1000
+#thermo_style	custom step temp v_strain v_stress ke pe press
+#run		5000
+
+print		"# Job done, Sir! See you."
+# Job done, Sir! See you.
+Total wall time: 0:17:15

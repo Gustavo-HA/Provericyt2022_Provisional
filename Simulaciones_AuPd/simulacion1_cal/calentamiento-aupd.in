@@ -1,0 +1,160 @@
+# AuPd nanoparticle, heating
+#1 general
+#angstrom, eV, Kelvin, etc
+units		metal
+#sistema 3D
+dimension	3
+#las particulas son atomos
+atom_style      atomic
+#skin para lista de vecinos
+neighbor        0.3 bin
+
+#2 estructura
+#condiciones periodicas de frontera
+boundary	p p p
+#archivo de coordenadas iniciales
+read_data	gaussian.dat
+#masa de Au
+mass        1 196.967
+#masa de Pd
+mass		2 106.42
+
+
+#3 variables
+# Variables que controlan extension de simulacion
+#Time step
+variable tstep equal 0.001
+#numero de pasos para la rampa de temperatura
+variable nramp equal 2000                # intenta 20000
+#numero de pasos para equilibracion
+variable nequil equal 1000               # intenta 10000
+#numero de pasos para colectar estadistica
+variable nstat equal 1000                # intenta 10000
+#reporta informacion termodinamica 20 veces
+variable ntherm equal v_nequil/20
+#escribe en archivo dump 20 veces
+variable ndump equal v_nstat/20
+#numero de atomos
+variable natoms equal "count(all)"
+#temperatura muy baja para optimizar sistema
+variable temp0 equal 1.0
+#temperatura mas baja
+variable temp1 equal 400
+#temperatura mas alta
+variable temp2 equal 800
+#numero de veces que se incrementara temperatura
+#(en este caso, en intervalos de 25 grados)
+variable n1 equal (v_temp2-v_temp1)/25
+ 
+#4 potenciales
+#potencial de embedded atom/Finnis-Sinclair para metales
+pair_style    eam/fs
+#archivo de coeficientes
+pair_coeff    * * AuPd.fs Au Pd
+
+#5 optimize at 0 K
+#dump           1 all custom 1 dump.minimization id type x y z
+#fix		1 all box/relax x 0.0 y 0.0
+#min_style	cg
+#minimize	0.0 1.0e-8 1000000 1000000
+#undump		1
+#unfix		1
+
+#6 optimiza a T baja
+#energia potencial por atomo
+compute		peratom all pe/atom
+#inicia en t=0
+reset_timestep	0
+#time step
+timestep	${tstep}
+#Se generan velocidades aleatorias a T muy baja
+velocity	all create ${temp0} 12345 mom yes rot yes
+#Se realiza NVT
+fix             1 all nvt temp ${temp0} ${temp0} 0.1
+#dump de la optimizacion, no hay mucho que ver
+dump            1 all custom ${ndump} dump.${temp0} id type x y z c_peratom fx fy fz
+#cambia tipos 1 y 2 por Au y Pd
+dump_modify   	1 element Au Pd
+#info termodinamica cada ntherm pasos
+thermo		${ntherm}
+#tipo de info termodinamica a reportar
+thermo_style	custom step temp pe 
+#corre nequil pasos
+run		${nequil}
+#deja de hacer nvt
+unfix		1
+#deja de escribir a aerchivo dump
+undump      1
+
+#7 calentamiento
+#comienza desde t=0
+reset_timestep	0
+#Se generan velocidades aleatorias a T inicial
+velocity	all create ${temp1} 12346 mom yes rot yes
+#variable para escribir temperatura en archivo
+variable	TEMPE equal "1.0*temp"
+#variable para escribir energia potencial por atomo en archivo
+variable	PEA equal "pe/v_natoms"
+#thermo_style	custom step pe temp PEA
+#escribe T y PEA cada 10 pasos
+fix		5 all print 10 "${TEMPE}   ${PEA}" file TEMPvsPEA.dat screen no
+#escribe PROMEDIOS de T y PEA
+fix		6 all ave/time 10 100 1000 v_TEMPE v_PEA file ave.dat
+#computa funcion de distribucion radial
+compute myRDF all rdf 50
+#escribe promedios de funcion de dist radial
+fix 7 all ave/time 10 100 1000 c_myRDF[*] file tmp.rdf mode vector
+#Comienza ciclo de calentamiento
+print	  	"Inicia calentamiento"
+#Inicia ciclo con la etiqueta "loop"
+label		loop
+#loop desde a=1 hasta a=n1 inclusive
+variable	a loop ${n1}
+#temperatura de inicio de calientamiento
+variable	newtemp1 equal (v_a-1)*25+v_temp1
+#temperatura de final de calentamiento
+variable	newtemp2 equal v_newtemp1+25
+#Rampa de T
+print	  	"Temperature ramp starts"
+#nvt con rampa de temperatura
+fix             1 all nvt temp ${newtemp1} ${newtemp2} 0.1
+#se hace la rampa en nramp pasos de simulacion
+run		${nramp}
+#deja de hacer la rampa de T
+unfix		1
+#Equilibrio a nueva T
+print	  	"Equilibration starts"
+#nvt para equlibrar luego de la rampa
+fix		2 all nvt temp ${newtemp2} ${newtemp2} 0.1
+#equilibra por nequil pasos
+run 		${nequil}
+#deja de hacer la equilibracion
+unfix		2
+#Se colecta estadistica
+print	  	"Stats collecting starts"
+#nvt para colectar estadistica
+fix		3 all nvt temp ${newtemp2} ${newtemp2} 0.1
+#escribe coordenadas a archivo dump
+dump            3 all custom ${ndump} dump.${newtemp2} id type x y z c_peratom fx fy fz
+# cambia tipos 1 y 2 por Au y Pd
+dump_modify   	3 element Au Pd
+#colecta estadistica por nstat pasos
+run		${nstat}
+#deja de colectar estadistica
+unfix		3
+#deja de escribir a archivo
+undump		3
+#cambia al siguiente valor de a
+next a
+#y luego salta a la etiqueta loop
+jump SELF loop
+#Termina ciclo
+#deja de escribir en los archivos
+unfix		5
+unfix 		6
+unfix 7
+print "ALL DONE"
+
+
+
+

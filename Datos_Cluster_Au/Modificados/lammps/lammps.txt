@@ -1,0 +1,85 @@
+kim init MEAM_LAMMPS_KimSeolJi_2017_PtNi__MO_020840179467_000 metal
+boundary p p p
+
+atom_style atomic
+atom_modify map array sort 0 0.0
+read_data model2_1.dat
+
+
+
+group Pt type 1
+group Ni type 2
+mass 1 195.08
+mass 2 58.693
+
+
+
+pair_style kim MEAM_LAMMPS_KimSeolJi_2017_PtNi__MO_020840179467_000
+pair_coeff * * Pt Ni
+compute arrs all pe/atom
+
+neighbor      0.3 bin
+neigh_modify  delay 10
+
+
+
+minimize      1.0e-9 1.0e-9  10000 100000
+
+velocity        all create 300.0 682000 rot yes mom yes dist gaussian 
+
+
+#dump            3 all custom 1000 dumpPtNi-modelb1.lammpstrj id element x y z
+#dump_modify     3 element Pt Ni
+
+thermo        1000
+timestep      0.001
+ 
+
+fix 		 2 all nvt temp 300.0 300.0 0.1  
+variable        tmp equal bound(all,ymax)-bound(all,ymin)
+variable        maxy equal bound(all,ymax)
+variable        mixy equal bound(all,ymin)
+thermo        1000
+timestep      0.001
+thermo_style  custom step temp pe ke press v_tmp v_maxy v_mixy
+
+run             15000
+
+#################################
+
+
+
+variable	leny equal ${tmp}
+variable	ym equal ${mixy}
+variable	yma equal ${maxy} 
+
+variable	ymix equal "(v_yma + 3.0)"
+variable	ymi equal "(v_ym - 3.0)"
+
+
+variable 	xeta equal "(v_ymix - dt*0.01*elaplong)"
+
+ 
+fix	3 all indent 10 plane y v_xeta hi units box
+fix 	4 all indent 10 plane y v_ymi lo units box
+
+
+
+
+
+variable	 strain equal "(v_leny - (v_xeta - v_ym))/v_leny"
+variable	 stress equal "(f_3[2])/((v_leny* (10^-10))^2)*(1/6.242e18)*(1/1e-10)*(1e-6)"
+fix 	def4 all print 100 "${strain}       ${stress}" file strainxstressmodel1.dat screen no
+
+
+
+thermo        1000
+timestep      0.001
+thermo_style  custom step temp pe ke  v_xeta  f_3[2]  f_4[2] v_strain v_stress press 
+
+
+
+run 	4486500
+
+
+

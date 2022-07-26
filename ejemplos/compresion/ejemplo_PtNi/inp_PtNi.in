@@ -1,0 +1,59 @@
+units         metal
+boundary      s s s
+    
+atom_style    atomic
+atom_modify   map array sort 0 0.0
+read_data     gaussian.dat  
+
+group 		Pt type 1
+group 		Ni type 2
+
+pair_style    eam/alloy
+pair_coeff    * * PtNi.set  Pt Ni  
+
+compute       arrs all pe/atom
+
+neighbor      0.3 bin
+neigh_modify  delay 10
+
+##compute        peratom all stress/atom NULL
+
+##dump          3 all custom 1000 dump.lammpstrj element id x y z ###c_arrs c_peratom[1] c_peratom[2] c_peratom[3] c_peratom[4] c_peratom[5] c_peratom[6]
+
+##dump_modify   3 element Pt Ni
+
+minimize      1.0e-9 1.0e-9  10000 10000
+
+velocity        all create 300.0 682000 rot yes mom yes dist gaussian loop local   
+
+region          arriba block 0.0 86.0 0.0 86.0 0.0 86.0
+group           arriba region arriba
+region          abajo block 0.0 86.0  0.0 10.00 0.0 86.0
+group           abajo region abajo
+
+##fix             2 arriba nvt temp 300.0 300.0 0.1
+##fix             8 abajo setforce 0.0 0.0 0.0
+
+##run 10000
+
+##undump 		3
+##unfix 		2
+
+compute         peratom all stress/atom NULL
+variable 	mises atom "0.707106781*(sqrt((c_peratom[1]-c_peratom[2])^2+(c_peratom[2]-c_peratom[3])^2 +(c_peratom[3]-c_peratom[1])^2 + 6*(c_peratom[4]^2+c_peratom[5]^2+c_peratom[6]^2)))"
+
+dump            3 all custom 1000 dumpPtNi-comp.lammpstrj id element x y z v_mises
+dump_modify     3 element Pt Ni
+
+variable 	xeta equal " 86.0 - dt*0.086*elaplong" 
+
+fix 		2 arriba nve
+fix         8 abajo setforce 0.0 0.0 0.0
+fix		3 all indent 10 plane y v_xeta hi units box
+
+thermo_style  custom step temp pe ke v_xeta f_3[3] press
+
+thermo        1000
+timestep      0.001
+
+run             150000 

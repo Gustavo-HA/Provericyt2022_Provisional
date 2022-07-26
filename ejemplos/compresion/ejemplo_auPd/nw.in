@@ -1,0 +1,107 @@
+# deform by tension
+#1 general
+units		metal
+dimension	3
+atom_style      atomic
+neighbor        0.3 bin
+
+#2 structure
+boundary	p p p
+# PONER PATH COMPLETO DEL ARCHIVO
+read_data	nw2.lammps
+mass        1 196.967
+mass		2 106.42
+
+#3 variables
+variable	temperature equal 300.0
+variable	pressure equal 0.0
+variable        tstep equal 0.001
+variable        tmp equal bound(all,zmax)-bound(all,zmin)
+variable        lenz equal ${tmp}
+#diam= Diametro del nanowire
+#variable	diam equal 24.468
+variable	diam equal bound(all,xmax)-bound(all,xmin)
+print           ${diam}
+
+#4 potentials
+# PONER EL PATH COMPLETO DEL ARCHIVO
+pair_style    eam/fs 
+pair_coeff    * * AuPd.fs Au Pd
+
+#5 optimize at 0 K
+#dump           1 all custom 1 dump.minimization id type x y z
+#fix		1 all box/relax x 0.0 y 0.0
+#min_style	cg
+#minimize	0.0 1.0e-8 1000000 1000000
+#undump		1
+#unfix		1
+
+#6 optimize at T
+compute		peratom all pe/atom
+reset_timestep	0
+timestep	${tstep}
+#Se generan velocidades aleatorias
+velocity	all create ${temperature} 64157 mom yes rot yes
+#Se realiza NPT
+fix             1 all npt temp ${temperature} ${temperature} 0.1 z ${pressure} ${pressure} 1
+#dump            1 all custom 1000 dump.optimize id type x y z c_peratom fx fy fz
+thermo		10000
+thermo_style	custom step lx ly lz press pxx pyy pzz pe temp
+neigh_modify    once yes
+run		100000
+
+
+variable        tmp equal lz
+variable        lz0 equal ${tmp}
+#fix		def1 all print 10000 "${lz0}" file lz0.dat screen no
+
+#7 tension by deform
+reset_timestep	0
+unfix		1
+
+#strainrate1= la conversion de las unidades del strainrate
+variable 	strainrate equal 1.0e9
+variable 	strainrate1 equal "v_strainrate/1.0e12"
+#Se realiza NPT
+fix		1 all nvt temp ${temperature} ${temperature} 0.1
+#Se relaja la caja
+fix		2 all deform 1 z erate ${strainrate1} units box remap x
+
+variable	strain equal "(lz-v_lz0)/v_lz0"
+# pressure unit, 1bar=10^5Pa=10^{-4}GPa
+# for 2D materials, 1GPa=h*0.1N/m, with thickness h in the unit of angstrom
+variable	stress equal "-(0.0001*pzz)*(lx*ly)/(3.14159*((v_diam/2)^2-(0)^2))"
+
+
+variable	vol equal "(lz)*(3.14159*((v_diam/2)^2-(0)^2))"
+variable	vol0 equal "(v_lz0)*(3.14159*((v_diam/2)^2-(0)^2))"
+variable	energy equal "(1/2)*(v_vol)*(v_strain)*(v_stress)"
+#fix		def2 all print 1 "${tmp}" file lz.dat screen no
+#fix		def3 all print 1 "${vol}" file vol.dat screen no
+fix		def4 all print 100 "${strain}   ${energy}" file SEvsS.dat screen no
+#fix		def5 all print 10000 "${vol0}" file vol0.dat screen no
+
+
+fix		def6 all print 100 "${strain}   ${stress}" file strain.dat screen no
+#undump		1
+compute         toss all stress/atom NULL
+# Calcula stress de von Mises
+variable        VM atom "((0.0001)/(0.707106781))*((c_toss[1]-c_toss[2])^2+(c_toss[2]-c_toss[3])^2+(c_toss[3]-c_toss[1])^2+6*((c_toss[4])^2+(c_toss[5])^2+(c_toss[6])^2))^(1/2)"
+dump		1 all custom 2000 dump.compression id type x y z vx vy vz fx fy fz v_VM
+
+
+#8 run molecular dynamics
+thermo		10000
+thermo_style	custom step temp v_strain v_stress ke pe press
+run		800000
+
+
+#9 run md2
+
+#variable        VM atom "((0.0001)/(0.707106781))*((c_toss[1]-c_toss[2])^2+(c_toss[2]-#c_toss[3])^2+(c_toss[3]-c_toss[1])^2+6*((c_toss[4])^2+(c_toss[5])^2+(c_toss[6])^2))^(1/2)"
+#dump		2 all custom 1 dump2.compression id type x y z vx vy vz fx fy fz v_VM
+#thermo		1000
+#thermo_style	custom step temp v_strain v_stress ke pe press
+#run		5000
+
+print		"# Job done, Sir! See you."
