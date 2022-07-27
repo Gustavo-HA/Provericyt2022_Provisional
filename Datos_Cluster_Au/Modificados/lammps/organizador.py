@@ -16,4 +16,4 @@ for carpeta in carpetas:
             os.makedirs(dir)
         else:
             print("Directory already existed : ", dir)
-        shutil.copy( "rotados_old/" + carpeta + '/' + str(i) + '.dat' , "rotados_PtNi/" + carpeta + '/' + str(i) + '/' + str(i) + '.dat' )
+        shutil.copy( "rotados_old/" + carpeta + '/' + str(i) + '.dat' , "rotados_old/" + carpeta + '/' + str(i) + '/' + str(i) + '.dat' )
